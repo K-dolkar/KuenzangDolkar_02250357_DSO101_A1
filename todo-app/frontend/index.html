@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>My Todo App</h1>
+        <div class="input-section">
+            <input 
+                type="text" 
+                id="taskInput" 
+                placeholder="Add a new task..."
+                autocomplete="off"
+            >
+            <button onclick="addTask()">Add</button>
+        </div>
+        <div id="editSection" class="edit-section" style="display: none;">
+            <input 
+                type="text" 
+                id="editInput" 
+                placeholder="Edit task..."
+                autocomplete="off"
+            >
+            <button onclick="saveEdit()">Save</button>
+            <button onclick="cancelEdit()">Cancel</button>
+        </div>
+        <ul id="taskList" class="task-list"></ul>
+    </div>
+
+    <script>
+        // Backend API URL
+        const API_URL = 'http://localhost:5000';
+        
+        console.log('Frontend loaded. API_URL:', API_URL);
+
+        // Load tasks on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTasks();
+            // Auto-load every 5 seconds to sync changes
+            setInterval(loadTasks, 5000);
+        });
+
+        async function loadTasks() {
+            try {
+                const response = await fetch(`${API_URL}/tasks`);
+                if (!response.ok) throw new Error('Failed to fetch tasks');
+                
+                const tasks = await response.json();
+                renderTasks(tasks);
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+
+        let currentEditingId = null;
+
+        function renderTasks(tasks) {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                taskList.innerHTML = '<li style="text-align: center; color: #999; padding: 20px;">No tasks yet. Add one!</li>';
+                return;
+            }
+            
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                li.innerHTML = `
+                    <span id="task-${task.id}" class="task-text">${task.text}</span>
+                    <div class="task-buttons">
+                        <button class="edit-btn" onclick="startEdit(${task.id}, '${task.text.replace(/'/g, "\\'")}')">Edit</button>
+                        <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                    </div>
+                `;
+                taskList.appendChild(li);
+            });
+        }
+
+        function startEdit(id, text) {
+            currentEditingId = id;
+            document.getElementById('editInput').value = text;
+            document.getElementById('editSection').style.display = 'flex';
+            document.getElementById('editInput').focus();
+        }
+
+        function cancelEdit() {
+            currentEditingId = null;
+            document.getElementById('editSection').style.display = 'none';
+        }
+
+        async function saveEdit() {
+            const newText = document.getElementById('editInput').value.trim();
+            
+            if (!newText) {
+                alert('Task cannot be empty');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks/${currentEditingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: newText })
+                });
+                
+                if (!response.ok) throw new Error('Failed to update task');
+                
+                cancelEdit();
+                loadTasks();
+            } catch (error) {
+                console.error('Error updating task:', error);
+                alert('Failed to update task: ' + error.message);
+            }
+        }
+
+        async function addTask() {
+            const input = document.getElementById('taskInput');
+            const text = input.value.trim();
+            
+            if (!text) {
+                alert('Please enter a task');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                
+                if (!response.ok) throw new Error('Failed to add task');
+                
+                input.value = '';
+                loadTasks();
+            } catch (error) {
+                console.error('Error adding task:', error);
+                alert('Failed to add task');
+            }
+        }
+
+        async function deleteTask(id) {
+            try {
+                const response = await fetch(`${API_URL}/tasks/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error('Failed to delete task');
+                
+                loadTasks();
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                alert('Failed to delete task');
+            }
+        }
+
+        // Allow Enter key to add task
+        document.getElementById('taskInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTask();
+        });
+    </script>
+</body>
+</html>
