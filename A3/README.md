@@ -1,82 +1,139 @@
-# Assignment 3 – CI/CD with GitHub Actions, Docker, and Render
+# Assignment III – CI/CD Pipeline using GitHub Actions, DockerHub, and Render
 
-**Student:** Kuenzang Dolkar | **ID:** 02250357 | **Course:** DSO101
+## Project Overview
 
-## GitHub Repository
+This project implements a Continuous Integration and Continuous Deployment (CI/CD) pipeline for a Node.js To-Do List REST API application. The pipeline automates the process of building, testing, containerizing, and deploying the application whenever changes are pushed to the GitHub repository.
 
-[https://github.com/KuenzangDolkar/todo-app](https://github.com/KuenzangDolkar/todo-app)
+### Technologies Used
 
-## Live Deployment
-
-[https://todo-app-XXXX.onrender.com](https://todo-app-XXXX.onrender.com)
-*(Replace with actual Render URL after deployment)*
+* GitHub – Source code hosting
+* GitHub Actions – CI/CD automation
+* Node.js & npm – Application runtime and package management
+* Jest – Unit testing
+* Docker – Containerization
+* DockerHub – Container registry
+* Render.com – Cloud deployment
 
 ---
 
 ## Steps Taken
 
 ### 1. Repository Setup
-- Used the Node.js To-Do List REST API from Assignment 1 as the base application.
-- Confirmed `package.json` contains the required scripts: `start`, `build`, `test`, and `test:local`.
-- Ensured the GitHub repository is set to **public**.
 
-### 2. Dockerfile
-Created a `Dockerfile` following the assignment's expected structure using `node:20-alpine` as the base image. The file installs dependencies, runs tests at build time, exposes port 3000, and starts the app with `npm start`.
+The To-Do List REST API from Assignment 1 was used as the base application. The repository was configured as public and the `package.json` file was verified to contain the required scripts for starting, building, and testing the application.
 
-### 3. GitHub Actions Workflow (`.github/workflows/deploy.yml`)
-The workflow triggers on every push to the `main` branch and runs the following steps:
-1. **Checkout** the repository.
-2. **Set up Node.js 20** and install dependencies.
-3. **Run tests** using Jest to gate the build.
-4. **Login to DockerHub** using repository secrets.
-5. **Build and push** the Docker image to DockerHub as `<username>/todo-app:latest`.
-6. **Trigger a Render deploy** via the Render deploy hook webhook URL.
+### 2. Docker Configuration
 
-### 4. GitHub Secrets Added
-The following secrets were added under **Settings → Secrets and variables → Actions**:
+A Dockerfile was created using the official `node:20-alpine` image.
 
-| Secret | Description |
-|---|---|
-| `DOCKERHUB_USERNAME` | DockerHub account username |
-| `DOCKERHUB_TOKEN` | DockerHub access token (not password) |
-| `RENDER_DEPLOY_HOOK_URL` | Render deploy hook URL from the service dashboard |
+The Dockerfile performs the following tasks:
 
-> **Note:** No credentials are hardcoded in any file. All sensitive values are referenced via `${{ secrets.* }}`.
+* Sets up the application environment
+* Installs dependencies
+* Copies source code
+* Runs automated tests
+* Exposes port 3000
+* Starts the application using `npm start`
 
-### 5. Render.com Setup
-1. Created a new **Web Service** on Render.com.
-2. Selected **"Deploy an existing image from a registry"**.
-3. Entered the DockerHub image URL: `docker.io/<username>/todo-app:latest`.
-4. Set the environment variable `PORT=3000`.
-5. Copied the **Deploy Hook URL** from the service settings and added it as the `RENDER_DEPLOY_HOOK_URL` GitHub secret.
+The application was tested locally using Docker to ensure it worked correctly before deployment.
+
+### 3. GitHub Actions Workflow
+
+A workflow file was created in:
+
+```text id="ntz6vq"
+.github/workflows/deploy.yml
+```
+
+The workflow automatically runs whenever code is pushed to the `main` branch.
+
+The workflow performs the following steps:
+
+1. Checks out the source code.
+2. Logs in to DockerHub using GitHub Secrets.
+3. Builds a Docker image.
+4. Pushes the Docker image to DockerHub.
+5. Triggers deployment on Render using a Deploy Hook URL.
+
+This ensures every code update is automatically packaged and deployed.
+
+### 4. GitHub Secrets
+
+To keep credentials secure, the following GitHub Secrets were configured:
+
+| Secret                 | Purpose                   |
+| ---------------------- | ------------------------- |
+| DOCKERHUB_USERNAME     | DockerHub username        |
+| DOCKERHUB_TOKEN        | DockerHub access token    |
+| RENDER_DEPLOY_HOOK_URL | Render deployment webhook |
+
+No credentials were hardcoded in the repository.
+
+### 5. Render Deployment
+
+A new Web Service was created on Render.com using the Docker image stored on DockerHub.
+
+Configuration steps included:
+
+* Selecting "Deploy an Existing Image"
+* Providing the DockerHub image URL
+* Setting required environment variables
+* Generating a Deploy Hook URL
+* Adding the Deploy Hook URL as a GitHub Secret
+
+Whenever a new image is pushed to DockerHub, GitHub Actions triggers a new deployment on Render.
 
 ---
 
-## Screenshots
+## CI/CD Workflow
 
-### GitHub Actions – Successful Workflow
-![GitHub Actions Workflow](screenshots/github-actions-success.png)
+The deployment process follows the sequence below:
 
-### DockerHub – Image Pushed
-![DockerHub Image](screenshots/dockerhub-image.png)
+```text id="r2d7ig"
+Code Push → GitHub Actions → Docker Build → DockerHub Push → Render Deployment → Live Application
+```
 
-### Render.com – Live Deployment
-![Render Deployment](screenshots/render-deployment.png)
+This fully automates the build and deployment process.
 
 ---
 
 ## Challenges Faced
 
-- **Render does not auto-redeploy on new DockerHub pushes.** Render only watches its own registry or a connected GitHub repo. To automate redeployment after a DockerHub push, a deploy hook webhook must be called explicitly from the GitHub Actions workflow using `curl`.
-- **Docker build runs tests**, which means the build fails if tests fail — this is intentional and enforces quality gating, but required `npm install` (not `--production`) so devDependencies like Jest are available.
-- **Secret management**: Keeping credentials out of the codebase required careful use of GitHub Secrets for all three services (DockerHub username, DockerHub token, Render webhook).
+### Render Redeployment
+
+Render does not automatically redeploy applications when DockerHub images are updated.
+
+**Solution:** A Render Deploy Hook was configured and triggered from GitHub Actions after every successful Docker image push.
+
+### DockerHub Authentication
+
+Authentication issues occurred when pushing Docker images.
+
+**Solution:** A DockerHub Access Token was generated and stored securely in GitHub Secrets.
+
+### Credential Security
+
+Managing credentials securely without exposing them in source code was important.
+
+**Solution:** All sensitive values were stored in GitHub Secrets and referenced in the workflow.
 
 ---
 
 ## Learning Outcomes
 
-- Understood the end-to-end CI/CD pipeline: code push → automated test → Docker build → registry push → cloud redeploy.
-- Learned how GitHub Actions workflows are structured: triggers, jobs, steps, and the use of community actions (`actions/checkout`, `docker/login-action`).
-- Gained practical experience containerising a Node.js app and managing a public DockerHub repository.
-- Understood how Render.com deploys from a container image and how to automate redeployment using webhooks.
-- Reinforced the importance of secrets management — never hardcoding credentials in source code.
+Through this assignment, I learned:
+
+* How CI/CD pipelines automate software delivery.
+* How GitHub Actions workflows are configured and executed.
+* How Docker containerizes applications.
+* How DockerHub stores and distributes container images.
+* How Render deploys containerized applications.
+* How deployment webhooks automate cloud deployments.
+* The importance of secure credential management using GitHub Secrets.
+* Practical DevOps concepts used in modern software development.
+
+---
+
+## Conclusion
+
+This assignment successfully implemented an automated CI/CD pipeline using GitHub Actions, DockerHub, Docker, and Render.com. The pipeline automatically builds, tests, packages, and deploys the Node.js application, reducing manual effort and improving deployment reliability while following modern DevOps best practices.
